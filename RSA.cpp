@@ -404,11 +404,10 @@ class big_num {
 			int S_orig = minus_one.lowest_1_index();
 			int S = S_orig;
 			big_num D = minus_one.shift_right(S_orig);
-			unsigned int test_numbers[] = { 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37 };
-			for (int j = 0; j < 10; j++) {
+			for (int j = 0; j < 30; j++) {
 				S = S_orig;
-				big_num test_num(test_numbers[j]);
-				//test_num.randomize(6, 0, 0);
+				big_num test_num;
+				test_num.randomize(40, 0, 0);
 				big_num orig = test_num;
 				test_num = test_num.exp_mod(D, *this);	// test_num : Y
 
@@ -458,11 +457,14 @@ int compare(big_num& operand_L, big_num& operand_R) {
 
 
 int main() {
-	big_num A(191), B(193), C(195), D(197);
+	big_num A(4001), B(4002), C(4003), D(4004), E(4005), F(4006), G(4007);
 	
-	cout << A.miller_rabin() << endl;
-	cout << B.miller_rabin() << endl;
-	cout << C.miller_rabin() << endl;
-	cout << D.miller_rabin() << endl;
+	cout << A.miller_rabin() << endl;	// T
+	cout << B.miller_rabin() << endl;	// F
+	cout << C.miller_rabin() << endl;	// T
+	cout << D.miller_rabin() << endl;	// F
+	cout << E.miller_rabin() << endl;	// F
+	cout << F.miller_rabin() << endl;	// F
+	cout << G.miller_rabin() << endl;	// T
 	return 0;
 }
