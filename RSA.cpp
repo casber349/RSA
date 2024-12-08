@@ -117,25 +117,6 @@ class big_num {
 			}
 			return result;
 		}
-
-		/*
-		big_num sub_mod(big_num operand_R, big_num mod_num) {	// ((operand_L - operand_R) % mod_num) operand_L(this) < mod_num, operand_R < mod_num
-			int cmp_result = compare(*this, operand_R);
-
-			if (cmp_result == 0) {	// operand_L(this) == operand_R
-				big_num result(0);
-				return result;
-			}
-			if(cmp_result == 1){
-				big_num result;
-				result = this->mod(operand_R);
-				return result;
-			}
-			big_num result;
-			result = this->addition(mod_num);
-			result = result.mod(mod_num);
-			return result;
-		}*/
 		
 		int highest_bit_index() {
 			if ((this->data.size() == 1) && (!this->data[0])) {
@@ -157,6 +138,9 @@ class big_num {
 		}
 
 		big_num shift_left(int bits) {
+			if (!bits) {
+				return *this;
+			}
 			big_num result = *this; //big_num& result = new big_num(*this)
 			int shift_units = bits / 32;
 			int shift_bits = bits % 32;
@@ -207,51 +191,33 @@ class big_num {
 			return result;
 		}
 
-		int div(big_num& B, big_num& Q, big_num& R) {	// this / B = Q ... R. Q(0), R(0)
+		big_num mod(big_num& B) {	// this mod B = R.
+			assert(!B.is_zero());
 			int cmp_result = compare(*this, B);
-			if (B.is_zero()) {
-				return -1;
-			}
 
 			if (is_zero()) {
-				Q.data.clear();
-				R.data.clear();
-				Q.data.push_back(0);
-				R.data.push_back(0);
-				return 0;
+				big_num zero(0);
+				return zero;
 			}
 
 			if (cmp_result == 0) {	// operand(this) == mod_num
-				Q.data.clear();
-				R.data.clear();
-				Q.data.push_back(1);
-				R.data.push_back(0);
-				return 0;
+				big_num zero(0);
+				return zero;
 			}
 
 			if (cmp_result == -1) {	// operand(this) < mod_num
-				Q.data.clear();
-				Q.data.push_back(0);
-				R = *this;
-				return 0;
+				return *this;
 			}
 
-			Q.data.clear();
-			Q.data.push_back(0);
 			int bit_difference = highest_bit_index() - B.highest_bit_index();
 			big_num temp = B.shift_left(bit_difference);
 			for (; bit_difference >= 0; bit_difference--) {
-				Q = Q.shift_left(1);
 				if (compare(*this, temp) != -1) {
 					*this = subtraction_abs(temp);
-					big_num one(1);
-					Q = Q.addition(one);
 				}
 				temp = temp.shift_right(1);
 			}
-			
-			R = *this;
-			return 0;
+			return *this;
 		}
 
 		bool is_zero() {
@@ -314,19 +280,16 @@ class big_num {
 			}
 
 			int E_bits = E.highest_bit_index();
-			big_num Q(0), R(0);
 			for (int j = E_bits; j >= 0; j--) {
 				result = result.multiplication(result);
-				result.div(N, Q, R);
-				result = R;
+				result = result.mod(N);
 				if (E.is_this_bit_1(j)) {
 					result = result.multiplication(*this);
-					result.div(N, Q, R);
-					result = R;
+					result = result.mod(N);
 				}
 			}
 
-			return R;
+			return result;
 		}
 
 		void randomize(int bits, bool highest_bit_is_1, bool is_odd) {
@@ -372,6 +335,13 @@ class big_num {
 			}
 		}
 
+		void print_in_hex() {
+			for (int j = data.size() - 1; j >= 0; j--) {
+				cout << hex << data[j];
+			}
+			cout << endl;
+		}
+
 		int lowest_1_index() {
 			int index = 0;
 			if ((is_zero()) || (!data.size())) {
@@ -397,7 +367,6 @@ class big_num {
 				return false;
 			}
 			
-			big_num Q(0), R(0);	// for div (mod)
 			big_num one(1);
 			big_num minus_one;
 			minus_one = subtraction_abs(one);
@@ -407,7 +376,12 @@ class big_num {
 			for (int j = 0; j < 30; j++) {
 				S = S_orig;
 				big_num test_num;
-				test_num.randomize(40, 0, 0);
+				while (1) {
+					test_num.randomize(highest_bit_index() - 1, 0, 0);	// 1 < test_num < *this - 1
+					if (compare(test_num, one) == 1) {
+						break;
+					}
+				}
 				big_num orig = test_num;
 				test_num = test_num.exp_mod(D, *this);	// test_num : Y
 
@@ -423,8 +397,7 @@ class big_num {
 
 					S--;
 					test_num = test_num.multiplication(test_num);
-					test_num.div(*this, Q, R);
-					test_num = R;
+					test_num = test_num.mod(*this);
 				}
 
 				if (S < 0) {
@@ -433,6 +406,130 @@ class big_num {
 			}
 			return true;
 		}
+
+		
+		big_num gcd(big_num& N) {
+			big_num A, B;
+			int cmp_result = compare(*this, N);
+			if (cmp_result == 0) {
+				return *this;
+			}
+			else if (cmp_result == 1) {
+				A = *this;
+				B = N;
+			}
+			else {
+				B = *this;
+				A = N;
+			}
+
+			
+			while (!B.is_zero()) {
+				big_num R;
+				R = A.mod(B);
+				A = B;
+				B = R;
+			}
+
+			return A;
+		}
+
+		big_num mod_inverse(big_num& P) {	// P is prime
+			/*
+				A(*this) ^ (P - 1) % P = 1
+				A * A ^ (P - 2) % P = 1
+				A ^ (P - 2) % P is A's mod inverse
+			*/
+			big_num A = *this;
+			big_num two(2);
+			big_num E = P.subtraction_abs(two);
+			big_num result;
+			result = A.exp_mod(E, P);
+
+			return result;
+		}
+};
+
+class key_pair {
+	public:
+		void generate_key_pair(int N_bits) {	// N is prime
+			big_num temp;
+			while (1) {
+				temp.randomize(N_bits, 1, 1);	// temp is odd
+				if (temp.miller_rabin()) {
+					break;
+				}
+			}
+
+			N = temp;
+			
+			E.data.clear();
+			E.data.push_back(65537);
+
+			big_num phi_N, one(1);
+			phi_N = N.subtraction_abs(one);
+			D = E.mod_inverse(phi_N);
+		}
+
+		void get_public_part(big_num& n, big_num& e) {
+			n = N;
+			e = E;
+		}
+
+		void get_private_part(big_num& n, big_num& d) {
+			n = N;
+			d = D;
+		}
+
+	private:
+		big_num N, E, D;
+};
+
+class key_owner {
+	public:
+		void initialize_key(int bits) {
+			key.generate_key_pair(bits);
+		}
+
+		big_num sign_data(big_num hashed_message) {
+			big_num signature;
+			key.get_private_part(N, D);
+			signature = hashed_message.exp_mod(D, N);
+
+			return signature;
+		}
+
+		void get_public_key(big_num& n, big_num& e) {
+			key.get_public_part(n, e);
+		}
+
+	private:
+		big_num N, D;
+		key_pair key;
+};
+
+class non_key_owner {
+	public:
+		void get_public_key_from_key_owner(key_owner& owner) {
+			owner.get_public_key(N, E);
+		}
+
+		bool verify_signature(big_num signature, big_num hashed_message, big_num* recovered_hash) {
+			big_num recovered_message_hash;
+			recovered_message_hash = signature.exp_mod(E, N);
+
+			if (recovered_hash) {	// optional
+				*recovered_hash = recovered_message_hash;
+			}
+			
+			if (compare(recovered_message_hash, hashed_message) == 0) {
+				return true;
+			}
+			return false;
+		}
+
+	private:
+		big_num N, E;
 };
 
 int compare(big_num& operand_L, big_num& operand_R) {
@@ -454,11 +551,9 @@ int compare(big_num& operand_L, big_num& operand_R) {
 	return 0;
 }
 
-
-
-int main() {
+void test_miller_rabin() {
 	big_num A(4001), B(4002), C(4003), D(4004), E(4005), F(4006), G(4007);
-	
+
 	cout << A.miller_rabin() << endl;	// T
 	cout << B.miller_rabin() << endl;	// F
 	cout << C.miller_rabin() << endl;	// T
@@ -466,5 +561,71 @@ int main() {
 	cout << E.miller_rabin() << endl;	// F
 	cout << F.miller_rabin() << endl;	// F
 	cout << G.miller_rabin() << endl;	// T
+	// output: 1 0 1 0 0 0 1
+
+}
+
+void test_miller_rabin_2() {
+	big_num A(6907), B(6908), C(6909), D(6910), E(6911), F(6912), G(6913);
+
+	cout << A.miller_rabin() << endl;	// T
+	cout << B.miller_rabin() << endl;	// F
+	cout << C.miller_rabin() << endl;	// F
+	cout << D.miller_rabin() << endl;	// F
+	cout << E.miller_rabin() << endl;	// T
+	cout << F.miller_rabin() << endl;	// F
+	cout << G.miller_rabin() << endl;	// F
+}
+
+void test_gcd() {
+	big_num A(4003 * 4001), B(4007 * 4003);
+	big_num C;
+	C= A.gcd(B);
+	cout << C.data[0] << endl;
+}
+
+void test_mod_inverse() {
+	big_num A(65537), P, B;
+	while (1) {
+		P.randomize(40, 0, 0);
+		if (P.miller_rabin()) {
+			break;
+		}
+	}
+	B = A.mod_inverse(P);
+	//cout << A.data[0] << " " << B.data[0]  << " " << P.data[0] << endl;
+}
+
+int main() {
+	//test_miller_rabin();
+	//test_miller_rabin_2();
+	//test_gcd();
+	//test_mod_inverse(); 
+
+	key_owner A;
+	non_key_owner B;
+	vector<unsigned int> temp;
+	temp.push_back(0x12345678);
+
+	big_num orig_message_hash(temp.begin(), (int)temp.size());
+	big_num signature, recovered_message;
+	bool verify_pass;
+
+	A.initialize_key(32);
+	signature = A.sign_data(orig_message_hash);
+
+	cout << "Original message: ";
+	orig_message_hash.print_in_hex();
+	cout << "Signature: ";
+	signature.print_in_hex();
+
+	B.get_public_key_from_key_owner(A);
+	verify_pass = B.verify_signature(signature, orig_message_hash, &recovered_message);
+
+	cout << "Recovered message: ";
+	recovered_message.print_in_hex();
+	
+	cout << "Signature varification " << (verify_pass ? "pass!" : "fail!" ) << endl;
+
 	return 0;
 }
