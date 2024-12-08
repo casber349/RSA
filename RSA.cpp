@@ -250,36 +250,7 @@ class big_num {
 
 			return result;
 		}
-		/*
-		big_num mod(big_num& B) {	// this mod B = R.
-			assert(!B.is_zero());
-			int cmp_result = compare_abs(*this, B);
 
-			if (is_zero()) {
-				big_num zero(0);
-				return zero;
-			}
-
-			if (cmp_result == 0) {	// operand(this) == mod_num
-				big_num zero(0);
-				return zero;
-			}
-
-			if (cmp_result == -1) {	// operand(this) < mod_num
-				return *this;
-			}
-
-			int bit_difference = highest_bit_index() - B.highest_bit_index();
-			big_num temp = B.shift_left(bit_difference);
-			for (; bit_difference >= 0; bit_difference--) {
-				if (compare_abs(*this, temp) != -1) {
-					*this = subtraction(temp);
-				}
-				temp = temp.shift_right(1);
-			}
-			return *this;
-		}
-		*/
 		int div(big_num& B, big_num& Q, big_num& R) {	// this / B = Q ... R. Q(0), R(0)
 			int cmp_result = compare_abs(*this, B);
 			assert(!B.is_zero());
@@ -456,7 +427,7 @@ class big_num {
 		}
 
 		void print_in_hex() {
-			for (int j = data.size() - 1; j >= 0; j--) {
+			for (int j = (int)data.size() - 1; j >= 0; j--) {
 				cout << hex << data[j];
 			}
 			cout << endl;
@@ -494,7 +465,7 @@ class big_num {
 			int S_orig = minus_one.lowest_1_index();
 			int S = S_orig;
 			big_num D = minus_one.shift_right(S_orig);
-			for (int j = 0; j < 30; j++) {
+			for (int j = 0; j < 40; j++) {
 				S = S_orig;
 				big_num test_num;
 				while (1) {
@@ -732,8 +703,6 @@ void test_mod_inverse() {
 	//cout << A.data[0] << " " << B.data[0]  << " " << P.data[0] << endl;
 }
 
-
-
 void test_egcd() {
 	//big_num A(11), B(9), gcd(0), inverse(0);	// 5
 	big_num A(13), B(5), gcd(0), inverse(0);
@@ -742,13 +711,10 @@ void test_egcd() {
 }
 
 int main() {
-
-	//test_egcd();
-	
 	key_owner A;
 	non_key_owner B;
 	vector<unsigned int> temp;
-	temp.push_back(0x12345678);
+	temp.push_back(0x931d6a5f);
 
 	big_num orig_message_hash(temp.begin(), (int)temp.size());
 	big_num signature, recovered_message;
