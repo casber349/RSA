@@ -8,8 +8,9 @@
 using namespace std;
 
 class big_num {
-	friend int compare(big_num& A, big_num& B);
+	friend int compare_abs(big_num& A, big_num& B);
 	public:
+		bool positive = true;
 		vector<unsigned int>data;
 		
 		big_num(){}
@@ -23,7 +24,31 @@ class big_num {
 			}
 		}
 
+		void negitive() {
+			positive = false;
+		}
+
 		big_num addition(big_num& operand_R) { 	// addition (operand_L(this) + operand_R)
+			if (positive && !operand_R.positive) {
+				big_num neg_operand = operand_R;
+				neg_operand.positive = true;
+				if (compare_abs(*this, operand_R) == -1) {
+					neg_operand = neg_operand.subtraction(*this);
+					neg_operand.positive = false;
+					return neg_operand;
+				}
+				return subtraction(operand_R);
+			}
+			else if (!positive && operand_R.positive) {
+				big_num neg_this = *this;
+				neg_this.positive = true;
+				if (compare_abs(*this, operand_R) == 1) {
+					neg_this = neg_this.subtraction(operand_R);
+					neg_this.positive = false;
+					return neg_this;
+				}
+				return operand_R.subtraction(neg_this);
+			}
 			big_num result;
 			unsigned int carry = 0;
 			unsigned int temp;
@@ -63,12 +88,47 @@ class big_num {
 			if (carry) {
 				result.data.push_back(1);
 			}
+
+			if (!positive && !operand_R.positive) {
+				result.positive = false;
+			}
 			return result;
 		}
 
-		big_num subtraction_abs(big_num& operand_R) {
-			if (compare(*this, operand_R) == -1) {
-				return (operand_R.sub_helper(*this));
+		big_num subtraction(big_num& operand_R) {
+			if (!positive && operand_R.positive) {
+				big_num neg_this = *this;
+				neg_this.positive = true;
+				neg_this = neg_this.addition(operand_R);
+				neg_this.positive = false;
+				return neg_this;
+			}
+
+			if (positive && !operand_R.positive) {
+				big_num neg_operand = operand_R;
+				neg_operand.positive = true;
+				neg_operand = addition(neg_operand);
+				return neg_operand;
+			}
+
+			if (!positive && !operand_R.positive) {
+				big_num neg_this = *this, neg_operand = operand_R;
+				neg_this.positive = true;
+				neg_operand.positive = true;
+				if (compare_abs(neg_this, neg_operand) == -1) {
+					big_num neg_result = neg_operand.sub_helper(neg_this);
+					neg_result.positive = true;
+					return neg_result;
+				}
+				big_num neg_result = neg_this.sub_helper(neg_operand);
+				neg_result.positive = false;
+				return neg_result;
+			}
+
+			if (compare_abs(*this, operand_R) == -1) {
+				big_num neg_result = operand_R.sub_helper(*this);
+				neg_result.positive = false;
+				return (neg_result);
 			}
 			return (this->sub_helper(operand_R));
 		}
@@ -193,7 +253,7 @@ class big_num {
 		/*
 		big_num mod(big_num& B) {	// this mod B = R.
 			assert(!B.is_zero());
-			int cmp_result = compare(*this, B);
+			int cmp_result = compare_abs(*this, B);
 
 			if (is_zero()) {
 				big_num zero(0);
@@ -212,8 +272,8 @@ class big_num {
 			int bit_difference = highest_bit_index() - B.highest_bit_index();
 			big_num temp = B.shift_left(bit_difference);
 			for (; bit_difference >= 0; bit_difference--) {
-				if (compare(*this, temp) != -1) {
-					*this = subtraction_abs(temp);
+				if (compare_abs(*this, temp) != -1) {
+					*this = subtraction(temp);
 				}
 				temp = temp.shift_right(1);
 			}
@@ -221,7 +281,7 @@ class big_num {
 		}
 		*/
 		int div(big_num& B, big_num& Q, big_num& R) {	// this / B = Q ... R. Q(0), R(0)
-			int cmp_result = compare(*this, B);
+			int cmp_result = compare_abs(*this, B);
 			assert(!B.is_zero());
 
 			if (is_zero()) {
@@ -249,19 +309,28 @@ class big_num {
 
 			Q.data.clear();
 			Q.data.push_back(0);
+			big_num this_abs = *this, B_abs = B;
+			
+			this_abs.positive = true;
+			B_abs.positive = true;
+			
 			int bit_difference = highest_bit_index() - B.highest_bit_index();
-			big_num temp = B.shift_left(bit_difference);
+			big_num temp = B_abs.shift_left(bit_difference);
 			for (; bit_difference >= 0; bit_difference--) {
 				Q = Q.shift_left(1);
-				if (compare(*this, temp) != -1) {
-					*this = subtraction_abs(temp);
+				if (compare_abs(this_abs, temp) != -1) {
+					this_abs = this_abs.subtraction(temp);
 					big_num one(1);
 					Q = Q.addition(one);
 				}
 				temp = temp.shift_right(1);
 			}
 
-			R = *this;
+			R = this_abs;
+			R.positive = positive;
+			if ((positive && !B.positive) || (!positive && B.positive)) {
+				Q.positive = false;
+			}
 			return 0;
 		}
 
@@ -304,6 +373,9 @@ class big_num {
 				}
 			}
 
+			if ((positive && !operand_R.positive) || (!positive && operand_R.positive)) {
+				result.positive = false;
+			}
 			return result;
 		}
 
@@ -418,7 +490,7 @@ class big_num {
 			big_num one(1);
 			big_num minus_one;
 			big_num Q(0), R(0);
-			minus_one = subtraction_abs(one);
+			minus_one = subtraction(one);
 			int S_orig = minus_one.lowest_1_index();
 			int S = S_orig;
 			big_num D = minus_one.shift_right(S_orig);
@@ -427,7 +499,7 @@ class big_num {
 				big_num test_num;
 				while (1) {
 					test_num.randomize(highest_bit_index() - 1, 0, 0);	// 1 < test_num < *this - 1
-					if (compare(test_num, one) == 1) {
+					if (compare_abs(test_num, one) == 1) {
 						break;
 					}
 				}
@@ -435,11 +507,11 @@ class big_num {
 				test_num = test_num.exp_mod(D, *this);	// test_num : Y
 
 				while (S >= 0) {
-					if (compare(one, test_num) == 0) {	// Y == 1
+					if (compare_abs(one, test_num) == 0) {	// Y == 1
 						break;
 					}
 					if (S > 0) {
-						if (compare(minus_one, test_num) == 0) {	// Y == -1
+						if (compare_abs(minus_one, test_num) == 0) {	// Y == -1
 							break;
 						}
 					}
@@ -456,48 +528,61 @@ class big_num {
 			}
 			return true;
 		}
+		
 
-		big_num gcd(big_num& N) {
-			big_num A, B;
-			int cmp_result = compare(*this, N);
-			if (cmp_result == 0) {
-				return *this;
-			}
-			else if (cmp_result == 1) {
-				A = *this;
-				B = N;
-			}
-			else {
-				B = *this;
-				A = N;
-			}
+		// D = phi_N.mod_inverse(E)
+		big_num mod_inverse(big_num& E) {	
+			big_num gcd(0), inverse(0);
+			bool valid = egcd(E, gcd, inverse);
+			
+			assert(valid);
 
+			return inverse;
+		}
+
+		// phi_N.egcd(E, gcd, D)
+		bool egcd(big_num B, big_num& gcd, big_num& inverse) {
+			big_num temp_this = *this;
+			big_num Q(0), R(0);
+			// Xn*A(phi_N) + Yn*B(E) = Rn ...-> gcd(A, B)
+			big_num X, X_prev1(0), X_prev2(1), Y, Y_prev1(1), Y_prev2(0);
+			// X = X_prev2 - Q * X_prev1, Y = Y_prev2 - Q * Y_prev1;
 
 			while (!B.is_zero()) {
-				big_num Q(0), R(0);
-				A.div(B, Q, R);
-				A = B;
+				temp_this.div(B, Q, R);
+
+				big_num temp_X;
+				temp_X = Q.multiplication(X_prev1);
+				X = X_prev2.subtraction(temp_X);
+				big_num temp_Y;
+				temp_Y = Q.multiplication(Y_prev1);
+				Y = Y_prev2.subtraction(temp_Y);
+
+				big_num one(1);
+				if ((compare_abs(R, one) == 0) && (R.positive)) {	// inverse = Y
+					while (!Y.positive) {
+						Y = Y.addition(*this);
+					}
+					inverse = Y;	// found inverse
+					gcd = one;
+					return true;
+				}
+
+				temp_this = B;
 				B = R;
+
+				X_prev2 = X_prev1;
+				X_prev1 = X;
+				Y_prev2 = Y_prev1;
+				Y_prev1 = Y;
 			}
 
-			return A;
-		}
-		
-		
 
-		big_num mod_inverse(big_num& P) {	// P is prime
-			/*
-				A(*this) ^ (P - 1) % P = 1
-				A * A ^ (P - 2) % P = 1
-				A ^ (P - 2) % P is A's mod inverse
-			*/
-			big_num A = *this;
-			big_num two(2);
-			big_num E = P.subtraction_abs(two);
-			big_num result;
-			result = A.exp_mod(E, P);
+			big_num zero(0);
+			gcd = temp_this;
+			inverse = zero;
 
-			return result;
+			return false;
 		}
 };
 
@@ -518,8 +603,8 @@ class key_pair {
 			E.data.push_back(65537);
 
 			big_num phi_N, one(1);
-			phi_N = N.subtraction_abs(one);
-			D = E.mod_inverse(phi_N);
+			phi_N = N.subtraction(one);
+			D = phi_N.mod_inverse(E);
 		}
 
 		void get_public_part(big_num& n, big_num& e) {
@@ -573,7 +658,7 @@ class non_key_owner {
 				*recovered_hash = recovered_message_hash;
 			}
 			
-			if (compare(recovered_message_hash, hashed_message) == 0) {
+			if (compare_abs(recovered_message_hash, hashed_message) == 0) {
 				return true;
 			}
 			return false;
@@ -583,7 +668,7 @@ class non_key_owner {
 		big_num N, E;
 };
 
-int compare(big_num& operand_L, big_num& operand_R) {
+int compare_abs(big_num& operand_L, big_num& operand_R) {
 	if (operand_L.data.size() < operand_R.data.size()) {
 		return -1;
 	}
@@ -631,7 +716,7 @@ void test_miller_rabin_2() {
 void test_gcd() {
 	big_num A(4003 * 4001), B(4007 * 4003);
 	big_num C;
-	C= A.gcd(B);
+	//C= A.gcd(B);
 	cout << C.data[0] << endl;
 }
 
@@ -647,54 +732,19 @@ void test_mod_inverse() {
 	//cout << A.data[0] << " " << B.data[0]  << " " << P.data[0] << endl;
 }
 
-bool egcd(int A, int B, int& gcd, int& inverse) {
-	int Q = 0, R = 0;
-	// Xn*A(phi_N) + Yn*B(E) = Rn ...-> gcd(A, B)
-	int X, X_prev1 = 0, X_prev2 = 1, Y, Y_prev1 = 1, Y_prev2 = 0;
-	// X = X_prev2 - Q * X_prev1, Y = Y_prev2 - Q * Y_prev1;
 
-	while (B > 0) {
-		Q = A / B;
-		R = A % B;
-
-		X = X_prev2 - Q * X_prev1;
-		Y = Y_prev2 - Q * Y_prev1;
-
-		if (R == 1) {	// inverse = Y
-			inverse = Y;	// found inverse
-			gcd = 1;
-			return true;
-		}
-
-		A = B;
-		B = R;
-
-		X_prev2 = X_prev1;
-		X_prev1 = X;
-		Y_prev2 = Y_prev1;
-		Y_prev1 = Y;
-	}
-
-	
-
-	gcd = A;
-	inverse = 0;
-
-	return false;
-}
 
 void test_egcd() {
-	int A = 12, B = 9, gcd, inverse;
+	//big_num A(11), B(9), gcd(0), inverse(0);	// 5
+	big_num A(13), B(5), gcd(0), inverse(0);
 
-	egcd(A, B, gcd, inverse);
+	A.egcd(B, gcd, inverse);
 }
 
 int main() {
-	//test_miller_rabin();
-	//test_miller_rabin_2();
-	test_egcd();
-	//test_mod_inverse(); 
 
+	//test_egcd();
+	
 	key_owner A;
 	non_key_owner B;
 	vector<unsigned int> temp;
