@@ -190,7 +190,7 @@ class big_num {
 
 			return result;
 		}
-
+		/*
 		big_num mod(big_num& B) {	// this mod B = R.
 			assert(!B.is_zero());
 			int cmp_result = compare(*this, B);
@@ -218,6 +218,51 @@ class big_num {
 				temp = temp.shift_right(1);
 			}
 			return *this;
+		}
+		*/
+		int div(big_num& B, big_num& Q, big_num& R) {	// this / B = Q ... R. Q(0), R(0)
+			int cmp_result = compare(*this, B);
+			assert(!B.is_zero());
+
+			if (is_zero()) {
+				Q.data.clear();
+				R.data.clear();
+				Q.data.push_back(0);
+				R.data.push_back(0);
+				return 0;
+			}
+
+			if (cmp_result == 0) {	// operand(this) == mod_num
+				Q.data.clear();
+				R.data.clear();
+				Q.data.push_back(1);
+				R.data.push_back(0);
+				return 0;
+			}
+
+			if (cmp_result == -1) {	// operand(this) < mod_num
+				Q.data.clear();
+				Q.data.push_back(0);
+				R = *this;
+				return 0;
+			}
+
+			Q.data.clear();
+			Q.data.push_back(0);
+			int bit_difference = highest_bit_index() - B.highest_bit_index();
+			big_num temp = B.shift_left(bit_difference);
+			for (; bit_difference >= 0; bit_difference--) {
+				Q = Q.shift_left(1);
+				if (compare(*this, temp) != -1) {
+					*this = subtraction_abs(temp);
+					big_num one(1);
+					Q = Q.addition(one);
+				}
+				temp = temp.shift_right(1);
+			}
+
+			R = *this;
+			return 0;
 		}
 
 		bool is_zero() {
@@ -279,13 +324,16 @@ class big_num {
 				return result;
 			}
 
+			big_num Q(0), R(0);
 			int E_bits = E.highest_bit_index();
 			for (int j = E_bits; j >= 0; j--) {
 				result = result.multiplication(result);
-				result = result.mod(N);
+				result.div(N, Q, R);
+				result = R;
 				if (E.is_this_bit_1(j)) {
 					result = result.multiplication(*this);
-					result = result.mod(N);
+					result.div(N, Q, R);
+					result = R;
 				}
 			}
 
@@ -369,6 +417,7 @@ class big_num {
 			
 			big_num one(1);
 			big_num minus_one;
+			big_num Q(0), R(0);
 			minus_one = subtraction_abs(one);
 			int S_orig = minus_one.lowest_1_index();
 			int S = S_orig;
@@ -397,7 +446,8 @@ class big_num {
 
 					S--;
 					test_num = test_num.multiplication(test_num);
-					test_num = test_num.mod(*this);
+					test_num.div(*this, Q, R);
+					test_num = R;
 				}
 
 				if (S < 0) {
@@ -407,7 +457,6 @@ class big_num {
 			return true;
 		}
 
-		
 		big_num gcd(big_num& N) {
 			big_num A, B;
 			int cmp_result = compare(*this, N);
@@ -423,16 +472,18 @@ class big_num {
 				A = N;
 			}
 
-			
+
 			while (!B.is_zero()) {
-				big_num R;
-				R = A.mod(B);
+				big_num Q(0), R(0);
+				A.div(B, Q, R);
 				A = B;
 				B = R;
 			}
 
 			return A;
 		}
+		
+		
 
 		big_num mod_inverse(big_num& P) {	// P is prime
 			/*
@@ -596,10 +647,52 @@ void test_mod_inverse() {
 	//cout << A.data[0] << " " << B.data[0]  << " " << P.data[0] << endl;
 }
 
+bool egcd(int A, int B, int& gcd, int& inverse) {
+	int Q = 0, R = 0;
+	// Xn*A(phi_N) + Yn*B(E) = Rn ...-> gcd(A, B)
+	int X, X_prev1 = 0, X_prev2 = 1, Y, Y_prev1 = 1, Y_prev2 = 0;
+	// X = X_prev2 - Q * X_prev1, Y = Y_prev2 - Q * Y_prev1;
+
+	while (B > 0) {
+		Q = A / B;
+		R = A % B;
+
+		X = X_prev2 - Q * X_prev1;
+		Y = Y_prev2 - Q * Y_prev1;
+
+		if (R == 1) {	// inverse = Y
+			inverse = Y;	// found inverse
+			gcd = 1;
+			return true;
+		}
+
+		A = B;
+		B = R;
+
+		X_prev2 = X_prev1;
+		X_prev1 = X;
+		Y_prev2 = Y_prev1;
+		Y_prev1 = Y;
+	}
+
+	
+
+	gcd = A;
+	inverse = 0;
+
+	return false;
+}
+
+void test_egcd() {
+	int A = 12, B = 9, gcd, inverse;
+
+	egcd(A, B, gcd, inverse);
+}
+
 int main() {
 	//test_miller_rabin();
 	//test_miller_rabin_2();
-	//test_gcd();
+	test_egcd();
 	//test_mod_inverse(); 
 
 	key_owner A;
