@@ -388,7 +388,7 @@ class big_num {
 			int extra_bits = bits % 32;
 			random_device rd;
 			mt19937 gen(rd());
-			uniform_int_distribution<unsigned int> dist(1, 0xffffffff);
+			uniform_int_distribution<unsigned int> dist(2, 0xffffffff);
 			data.clear();
 			for (int j = 0; j < units; j++) {
 				data.push_back(dist(gen));
@@ -714,7 +714,7 @@ int main() {
 	key_owner A;
 	non_key_owner B;
 	vector<unsigned int> temp;
-	temp.push_back(0x931d6a5f);
+	temp.push_back(0x6138ed9b);
 
 	big_num orig_message_hash(temp.begin(), (int)temp.size());
 	big_num signature, recovered_message;
